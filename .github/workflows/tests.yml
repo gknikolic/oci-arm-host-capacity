@@ -62,7 +62,10 @@ jobs:
           openssl pkey -in /tmp/oci_private_key.pem -pubout 2>/dev/null | openssl md5 -c 2>/dev/null || true
 
       - name: Run script
-        run: php index.php
+        run: |
+          OCI_SSH_PUBLIC_KEY=$(echo "$OCI_SSH_PUBLIC_KEY" | tr -d '\r\n')
+          export OCI_SSH_PUBLIC_KEY
+          php index.php
         env:
           OCI_REGION: ${{ secrets.OCI_REGION }}
           OCI_USER_ID: ${{ secrets.OCI_USER_ID }}
