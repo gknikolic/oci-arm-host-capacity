@@ -50,6 +50,17 @@ jobs:
           fi
           chmod 600 /tmp/oci_private_key.pem
 
+      - name: Debug key file
+        run: |
+          echo "=== Key file info ==="
+          echo "Lines: $(wc -l < /tmp/oci_private_key.pem)"
+          echo "First line: $(head -1 /tmp/oci_private_key.pem)"
+          echo "Last line: $(tail -1 /tmp/oci_private_key.pem)"
+          echo "=== OpenSSL validation ==="
+          openssl pkey -in /tmp/oci_private_key.pem -noout 2>&1 || openssl rsa -in /tmp/oci_private_key.pem -noout 2>&1 || true
+          echo "=== Fingerprint from key ==="
+          openssl pkey -in /tmp/oci_private_key.pem -pubout 2>/dev/null | openssl md5 -c 2>/dev/null || true
+
       - name: Run script
         run: php index.php
         env:
