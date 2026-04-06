@@ -43,7 +43,7 @@ jobs:
         env:
           KEY_CONTENT: ${{ secrets.OCI_PRIVATE_KEY_CONTENT }}
         run: |
-          echo "$KEY_CONTENT" > /tmp/oci_private_key.pem
+          echo "$KEY_CONTENT" | base64 -d > /tmp/oci_private_key.pem
           chmod 600 /tmp/oci_private_key.pem
 
       - name: Run script
