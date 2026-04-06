@@ -40,8 +40,10 @@ jobs:
         run: composer install --prefer-dist --no-progress
 
       - name: Write private key to file
+        env:
+          KEY_CONTENT: ${{ secrets.OCI_PRIVATE_KEY_CONTENT }}
         run: |
-          echo "${{ secrets.OCI_PRIVATE_KEY_CONTENT }}" > /tmp/oci_private_key.pem
+          echo "$KEY_CONTENT" > /tmp/oci_private_key.pem
           chmod 600 /tmp/oci_private_key.pem
 
       - name: Run script
