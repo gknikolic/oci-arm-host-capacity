@@ -72,7 +72,7 @@ jobs:
           echo "=== Fingerprint from key ==="
           openssl pkey -in /tmp/oci_private_key.pem -pubout 2>/dev/null | openssl md5 -c 2>/dev/null || true
 
-      - name: Run script (tries every 10 minutes for about 5.5 hours)
+      - name: Run script (tries every 20 minutes for about 5.5 hours)
         id: launch
         run: |
           OCI_SSH_PUBLIC_KEY=$(echo "$OCI_SSH_PUBLIC_KEY" | tr -d '\r\n')
@@ -93,8 +93,8 @@ jobs:
               echo "exists=true" >> "$GITHUB_OUTPUT"
               break
             fi
-            if [ $((SECONDS + 600)) -ge "$end" ]; then break; fi
-            sleep 600
+            if [ $((SECONDS + 1200)) -ge "$end" ]; then break; fi
+            sleep 1200
           done
         env:
           OCI_REGION: ${{ secrets.OCI_REGION }}
