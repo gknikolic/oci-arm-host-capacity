@@ -7,7 +7,8 @@ on:
   workflow_dispatch:
 
   schedule:
-    - cron: '*/10 * * * *' # every 10 min; GitHub may delay scheduled runs
+    # Backup only: GitHub delays or skips schedules; the loop below re-dispatches itself.
+    - cron: '17 */3 * * *'
 
 permissions:
   contents: read
@@ -22,6 +23,7 @@ jobs:
   create-instance:
     runs-on: ubuntu-latest
     name: create-instance (PHP 8.3)
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v3
 
@@ -70,15 +72,30 @@ jobs:
           echo "=== Fingerprint from key ==="
           openssl pkey -in /tmp/oci_private_key.pem -pubout 2>/dev/null | openssl md5 -c 2>/dev/null || true
 
-      - name: Run script
+      - name: Run script (tries every 10 minutes for about 5.5 hours)
         id: launch
         run: |
           OCI_SSH_PUBLIC_KEY=$(echo "$OCI_SSH_PUBLIC_KEY" | tr -d '\r\n')
           export OCI_SSH_PUBLIC_KEY
-          php index.php | tee /tmp/launch.log
-          if grep -q '"lifecycleState"' /tmp/launch.log; then
-            echo "created=true" >> "$GITHUB_OUTPUT"
-          fi
+          end=$((SECONDS + 330 * 60))
+          attempt=0
+          while :; do
+            attempt=$((attempt + 1))
+            echo "=== attempt $attempt, $(date -u +'%H:%M UTC') ==="
+            php index.php > /tmp/attempt.log 2>&1 || true
+            cat /tmp/attempt.log | tee -a /tmp/launch.log
+            if grep -q '"lifecycleState"' /tmp/attempt.log; then
+              cp /tmp/attempt.log /tmp/launch.log
+              echo "created=true" >> "$GITHUB_OUTPUT"
+              break
+            fi
+            if grep -q 'Already have an instance' /tmp/attempt.log; then
+              echo "exists=true" >> "$GITHUB_OUTPUT"
+              break
+            fi
+            if [ $((SECONDS + 600)) -ge "$end" ]; then break; fi
+            sleep 600
+          done
         env:
           OCI_REGION: ${{ secrets.OCI_REGION }}
           OCI_USER_ID: ${{ secrets.OCI_USER_ID }}
@@ -116,3 +133,10 @@ jobs:
             --body-file /tmp/issue.md \
             --assignee "${{ github.repository_owner }}"
           gh workflow disable "Create OCI Instance" -R "${{ github.repository }}"
+
+      # A workflow_dispatch from GITHUB_TOKEN is allowed to start a new run, so the loop continues.
+      - name: Start the next round
+        if: steps.launch.outputs.created != 'true' && steps.launch.outputs.exists != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run "Create OCI Instance" -R "${{ github.repository }}" --ref main
